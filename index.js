@@ -20,8 +20,27 @@ const port = 3003;
 
 
 app.get('/', (req, res) => {
-  res.send("yoyoyoyoyoy we got an app")
-  console.log(req.body)
+  const createDB = async () => {
+    try {
+        console.log("waiting to connect");
+        const client = await pool.connect();
+        console.log("connect");
+        const query = {
+          text: 'select * from clients.clients c where client_id = 5'
+        }
+        const results = await client.query(query)
+        await res.send({robert: results.rows})
+        await client.end()
+    }
+    catch (err) {
+        console.log(err)
+        res.send({status: "error"})
+    }
+    finally {
+        console.log("you da man")
+    }
+  }
+  createDB()
 });
 
 app.post('/add-client', (req, res) => {
