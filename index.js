@@ -105,7 +105,19 @@ app.post('/transactions', (req, res) => {
         values: [client_id, return_bucket, new_bucket, date] 
       }
       const results = await client.query(query)
-      console.log(results);
+     
+      const update_bucket = {
+        text: `UPDATE clients.buckets SET bucket_owner = 5 WHERE bucket_id = ${return_bucket}`
+      }
+      const updateSuccess = await client.query(update_bucket);
+
+      const update_return_bucket = {
+        text: `UPDATE clients.buckets SET bucket_owner = ${client_id} WHERE bucket_id = ${new_bucket}`
+      }
+      const returnSuccess = await client.query(update_return_bucket);
+
+      console.log(returnSuccess.text);
+      
       res.send(results);
       await client.end();
     }
@@ -125,15 +137,22 @@ app.get('/generate-user-list', (req, res) => {
       const client = await pool.connect();
       console.log("creating Db");
       const client_query = {
-        text: 'SELECT client_id, first_name, last_name FROM clients.clients' 
+        text: 'SELECT client_id, first_name, last_name FROM clients.clients WHERE client_id != 5' 
       }
       const clientResults = await client.query(client_query)
-      const bucket_query = {
-        text: 'SELECT bucket_id, bucket_name FROM clients.buckets'
+      
+      const available_bucket_query = {
+        text: 'SELECT bucket_id, bucket_name FROM clients.buckets WHERE bucket_owner = 5'
       }
+      const availableBuckets = await client.query(available_bucket_query)
+      
+      const out_bucket_query = {
+        text: 'SELECT * FROM clients.buckets WHERE bucket_owner != 5'
+      }
+      const outBuckets = await client.query(out_bucket_query);
 
-      const bucketResults = await client.query(bucket_query)
-      res.send({clientResults: clientResults.rows, bucketResults: bucketResults.rows});
+
+      res.send({clientResults: clientResults.rows, availableBuckets: availableBuckets.rows, outBuckets: outBuckets.rows});
       await client.end();
     }
     catch(err) {
