@@ -49,11 +49,12 @@ app.post('/add-client', (req, res) => {
       try {
           const client = await pool.connect();
           const query = {
-            text: 'INSERT INTO clients.clients(first_name, last_name, address, phone_number, email, location_acquired) VALUES($1, $2, $3, $4, $5, $6)',
+            text: 'INSERT INTO clients.clients(first_name, last_name, address, phone_number, email, location_acquired) VALUES($1, $2, $3, $4, $5, $6) RETURNING client_id',
             values: [first_name, last_name, address, email, phone_number, location_acquired]
           }
-          const results = await client.query(query)
-          await res.send({status: "success"})
+          const results = await client.query(query);
+          console.log(results.rows[0].client_id);
+          await res.send({status: "success", id: results.rows[0].client_id})
           await client.end()
       }
       catch (err) {
@@ -94,17 +95,19 @@ app.post('/add-bucket', (req, res) => {
 });
 
 app.post('/transactions', (req, res) => {
-  const {client_id, return_bucket, new_bucket, date} = req.body;
+  const {client_id, return_bucket, new_bucket, date, weight} = req.body;
   console.log(req.body);
   const createDB = async ()=> {
     try {
       const client = await pool.connect();
       console.log("creating Db");
       const query = {
-        text: 'INSERT INTO clients.transactions(client_id, return_bucket, new_bucket, date) VALUES($1, $2, $3, $4)',
-        values: [client_id, return_bucket, new_bucket, date] 
+        text: 'INSERT INTO clients.transactions(client_id, return_bucket, new_bucket, date, weight) VALUES($1, $2, $3, $4, $5)',
+        values: [client_id, return_bucket, new_bucket, date, weight] 
       }
-      const results = await client.query(query)
+      const results = await client.query(query);
+
+      console.log("insert", results);
      
       const update_bucket = {
         text: `UPDATE clients.buckets SET bucket_owner = 5 WHERE bucket_id = ${return_bucket}`
@@ -164,6 +167,63 @@ app.get('/generate-user-list', (req, res) => {
   }
   createDB();
 })
+
+app.post('/assign-bucket', (req, res) => {
+  const {client_id} = req.body;
+  console.log(req.body);
+  const createDB = async ()=> {
+    try {
+      const client = await pool.connect();
+      console.log("creating Db");
+      const query = {
+        text: `SELECT first_name, last_name FROM  clients.clients WHERE client_id = ${client_id} `
+      }
+      const results = await client.query(query);
+
+      const available_bucket_query = {
+        text: 'SELECT bucket_id, bucket_name FROM clients.buckets WHERE bucket_owner = 5'
+      }
+      const availableBuckets = await client.query(available_bucket_query)
+     
+      res.send({user: results.rows[0], availableBuckets: availableBuckets.rows});
+      await client.end();
+    }
+    catch(err) {
+      console.log(err);
+    }
+    finally {
+      console.log('hello')
+    }
+  }
+  createDB();
+})
+
+app.post('/give-bucket', (req, res) => {
+  const {client_id, bucket_id} = req.body;
+  console.log(req.body);
+  const createDB = async ()=> {
+    try {
+      const client = await pool.connect();
+      console.log("creating Db");
+      const give_bucket = {
+        text: `UPDATE clients.buckets SET bucket_owner = ${client_id} WHERE bucket_id = ${bucket_id}`
+      }
+      const returnSuccess = await client.query(give_bucket);
+      console.log(returnSuccess);
+      res.send({status: 'success'})
+      await client.end();
+    }
+    catch(err) {
+      console.log(err);
+      res.send({status: 'error'});
+    }
+    finally {
+      console.log('hello')
+    }
+  }
+  createDB();
+})
+
 
 
 
